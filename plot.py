@@ -17,6 +17,7 @@ def parse_args():
     parser.add_argument('-s', '--start_ts', help='Do not consider transfers that started before given time. Format: 2024-01-18T01:45:59', default=None)
     parser.add_argument('-e', '--end_ts', help='Do not consider transfers that finished after given time. Format: 2024-01-18T01:45:59', default=None)
     parser.add_argument('-S', '--successfull_only', help='Do not consider failed transfers.', action='store_true')
+    parser.add_argument('-t', '--type', help='Plot type.', choices=['throughput', 'NumOfTransfers'])
     args = parser.parse_args()
     return args
 
@@ -49,13 +50,13 @@ if __name__ == '__main__':
            ):
             continue
         if vo in vos:
-            vos[vo].append( (start_time, item['throughput']) )
-            vos[vo].append( (end_time, -item['throughput']) )
+            vos[vo].append( (start_time, item['throughput'], 1) )
+            vos[vo].append( (end_time, -item['throughput'], -1) )
         else:
-            vos[vo] = [ (start_time, item['throughput']) ]
-            vos[vo] = [ (end_time, -item['throughput']) ]
-        vos['all'].append([start_time, item['throughput']])
-        vos['all'].append([end_time, -item['throughput']])
+            vos[vo] = [ (start_time, item['throughput'], 1) ]
+            vos[vo] = [ (end_time, -item['throughput'], -1) ]
+        vos['all'].append( (start_time, item['throughput'], 1) )
+        vos['all'].append( (end_time, -item['throughput'], -1) )
 
     if len(vos['all']) == 0:
         print("No data found! Check filters.")
@@ -64,27 +65,43 @@ if __name__ == '__main__':
     for vo in vos:
         vos[vo].sort(key=lambda x: x[0])
 
-    res = {k: ([], []) for k in vos}
+    res = {k: ([], [], []) for k in vos}
     shift = vos['all'][0][0]
     for key, val in vos.items():
-        cum_sum = 0
-        for ts, thr in val:
-            cum_sum += thr
+        cum_num = 0
+        cum_thr = 0
+        for ts, thr, tr_state in val:
+            cum_thr = max(0, cum_thr + thr)
+            cum_num = cum_num + tr_state
+            ts = ts - shift
             if len(res[key][0]) > 0 and res[key][0][-1] == ts:
                 res[key][1][-1] += thr
+                res[key][2][-1] += tr_state
             else:
-                res[key][0].append(ts - shift)
-                res[key][1].append(cum_sum)
+                res[key][0].append(ts)
+                res[key][1].append(cum_thr)
+                res[key][2].append(cum_num)
+
     print(f"lasted: {res['all'][0][-1]}, start time: {shift}, end time: {shift + res['all'][0][-1]}") 
     legend = []
     for key, val in res.items():
-        plt.step(val[0], val[1])
+        if args.type == 'throughput':
+            yval = val[1]
+        else:
+            yval = val[2]
+        plt.step(val[0], yval)
         legend.append(key)
     if args.xlim:
         s, e = [int(x) for x in args.xlim.split(',')]
         plt.xlim([s,e])
+
+    if args.type == 'throughput':
+        ylabel, title = 'Throughput, MiB/s', 'Throughput by VO'
+    else:
+        ylabel, title = 'Number Of Transfers', 'Transfers by VO'
+
     plt.xlabel("Time, sec")
-    plt.ylabel("Throughput, MiB/s")
-    plt.title("Throughput by VO")
+    plt.ylabel(ylabel)
+    plt.title(title)
     plt.legend(res)
     plt.savefig(args.output, dpi=args.resolution)
