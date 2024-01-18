@@ -78,10 +78,13 @@ if __name__ == '__main__':
     print(f"lasted: {res['all'][0][-1]}, start time: {shift}, end time: {shift + res['all'][0][-1]}") 
     legend = []
     for key, val in res.items():
-        plt.plot(val[0], val[1])
+        plt.step(val[0], val[1])
         legend.append(key)
     if args.xlim:
         s, e = [int(x) for x in args.xlim.split(',')]
         plt.xlim([s,e])
+    plt.xlabel("Time, sec")
+    plt.ylabel("Throughput, MiB/s")
+    plt.title("Throughput by VO")
     plt.legend(res)
     plt.savefig(args.output, dpi=args.resolution)
