@@ -14,6 +14,8 @@ def parse_args():
     parser.add_argument('-o', '--output', help='Plot output', default='./plot.png')
     parser.add_argument('-r', '--resolution', help='Resolution, in dpi', default=300, type=int)
     parser.add_argument('-x', '--xlim', help='X axis limits, comma-separated', default=None)
+    parser.add_argument('-g', '--group_by', help='Group transfers by key', default='vo_name')
+    parser.add_argument('-y', '--ylim', help='Y axis limits, comma-separated', default=None)
     parser.add_argument('-s', '--start_ts', help='Do not consider transfers that started before given time. Format: 2024-01-18T01:45:59', default=None)
     parser.add_argument('-e', '--end_ts', help='Do not consider transfers that finished after given time. Format: 2024-01-18T01:45:59', default=None)
     parser.add_argument('-S', '--successfull_only', help='Do not consider failed transfers.', action='store_true')
@@ -27,9 +29,8 @@ if __name__ == '__main__':
     with open(args.data) as fd:
         data = json.loads(fd.read())
 
-    vos = {'all': []}
+    raw_data = {'all': []}
     for item in data:
-        vo = item['vo_name']
         start_time = int(datetime.strptime(item['start_time'], '%Y-%m-%dT%H:%M:%SZ').strftime("%s"))
         end_time = start_time + item['tx_duration']
         #datetime.strptime(item['finish_time'], '%Y-%m-%dT%H:%M:%SZ').strftime("%s")
@@ -49,25 +50,26 @@ if __name__ == '__main__':
                item['file_state'] != "FINISHED"  
            ):
             continue
-        if vo in vos:
-            vos[vo].append( (start_time, item['throughput'], 1) )
-            vos[vo].append( (end_time, -item['throughput'], -1) )
+        key = item[args.group_by]
+        if key in raw_data:
+            raw_data[key].append( (start_time, item['throughput'], 1) )
+            raw_data[key].append( (end_time, -item['throughput'], -1) )
         else:
-            vos[vo] = [ (start_time, item['throughput'], 1) ]
-            vos[vo] = [ (end_time, -item['throughput'], -1) ]
-        vos['all'].append( (start_time, item['throughput'], 1) )
-        vos['all'].append( (end_time, -item['throughput'], -1) )
+            raw_data[key] = [ (start_time, item['throughput'], 1) ]
+            raw_data[key] = [ (end_time, -item['throughput'], -1) ]
+        raw_data['all'].append( (start_time, item['throughput'], 1) )
+        raw_data['all'].append( (end_time, -item['throughput'], -1) )
 
-    if len(vos['all']) == 0:
+    if len(raw_data['all']) == 0:
         print("No data found! Check filters.")
         sys.exit(1)
 
-    for vo in vos:
-        vos[vo].sort(key=lambda x: x[0])
+    for key in raw_data:
+        raw_data[key].sort(key=lambda x: x[0])
 
-    res = {k: ([], [], []) for k in vos}
-    shift = vos['all'][0][0]
-    for key, val in vos.items():
+    res = {k: ([], [], []) for k in raw_data}
+    shift = raw_data['all'][0][0]
+    for key, val in raw_data.items():
         cum_num = 0
         cum_thr = 0
         for ts, thr, tr_state in val:
@@ -94,11 +96,14 @@ if __name__ == '__main__':
     if args.xlim:
         s, e = [int(x) for x in args.xlim.split(',')]
         plt.xlim([s,e])
+    if args.ylim:
+        s, e = [int(x) for x in args.ylim.split(',')]
+        plt.ylim([s,e])
 
     if args.type == 'throughput':
-        ylabel, title = 'Throughput, MiB/s', 'Throughput by VO'
+        ylabel, title = 'Throughput, MiB/s', f'Throughput by {args.group_by}'
     else:
-        ylabel, title = 'Number Of Transfers', 'Transfers by VO'
+        ylabel, title = 'Number Of Transfers', f'Transfers by {args.group_by}'
 
     plt.xlabel("Time, sec")
     plt.ylabel(ylabel)
