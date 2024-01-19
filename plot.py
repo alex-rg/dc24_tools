@@ -3,7 +3,9 @@
 import re
 import sys
 import json
+import time
 import argparse
+import matplotlib.ticker as mtick
 
 from datetime import datetime
 from matplotlib import pyplot as plt
@@ -17,6 +19,8 @@ def parse_args():
     parser.add_argument('-x', '--xlim', help='X axis limits, comma-separated', default=None)
     parser.add_argument('-m', '--multiple_bins', help='What to do with multiple bins', default='layer', choices=['layer', 'fill', 'dodge', 'stack'])
     parser.add_argument('-g', '--group_by', help='Group transfers by key', default='vo_name')
+    parser.add_argument('-H', '--height', help='Figure height', default=None, type=int)
+    parser.add_argument('-W', '--width', help='Figure width', default=None, type=int)
     parser.add_argument('-G', '--group_by_func', help='Aggreagate lambda, for scattered plots. Default is to group by key value', default=None)
     parser.add_argument('-f', '--filter', help='Arbitrary filter for values. Should be string desc of a lambda which takes 1 arg (transfer description dict).', default=None)
     parser.add_argument('-y', '--ylim', help='Y axis limits, comma-separated', default=None)
@@ -101,7 +105,7 @@ if __name__ == '__main__':
         for ts, thr, tr_state in val:
             cum_thr = max(0, cum_thr + thr)
             cum_num = cum_num + tr_state
-            ts = ts - shift
+            ts = ts # - shift
             if len(res[key][0]) > 0 and res[key][0][-1] == ts:
                 res[key][1][-1] += thr
                 res[key][2][-1] += tr_state
@@ -146,8 +150,16 @@ if __name__ == '__main__':
         else:
             ylabel, title = 'Number Of Transfers', f'Transfers by {args.group_by}'
 
-        plt.xlabel("Time, sec")
+        plt.xlabel("Time")
         plt.ylabel(ylabel)
         plt.title(title)
         plt.legend(res)
+        plt.gca().xaxis.set_major_formatter(
+                mtick.FuncFormatter(lambda pos,_: time.strftime("%d-%m %H:%M",time.localtime(pos)))
+            )
+        plt.xticks(rotation=90)
+        if args.height:
+            plt.gcf().set_figheight(args.height)
+        if args.width:
+            plt.gcf().set_figwidth(args.width)
     plt.savefig(args.output, dpi=args.resolution)
