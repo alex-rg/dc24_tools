@@ -17,17 +17,22 @@ def parse_args():
     parser.add_argument('-o', '--output', help='Plot output', default='./plot.png')
     parser.add_argument('-r', '--resolution', help='Resolution, in dpi', default=300, type=int)
     parser.add_argument('-x', '--xlim', help='X axis limits, comma-separated', default=None)
-    parser.add_argument('-m', '--multiple_bins', help='What to do with multiple bins', default='layer', choices=['layer', 'fill', 'dodge', 'stack'])
+    parser.add_argument('-y', '--ylim', help='Y axis limits, comma-separated', default=None)
     parser.add_argument('-g', '--group_by', help='Group transfers by key', default='vo_name')
     parser.add_argument('-H', '--height', help='Figure height', default=None, type=int)
     parser.add_argument('-W', '--width', help='Figure width', default=None, type=int)
-    parser.add_argument('-G', '--group_by_func', help='Aggreagate lambda, for scattered plots. Default is to group by key value', default=None)
     parser.add_argument('-f', '--filter', help='Arbitrary filter for values. Should be string desc of a lambda which takes 1 arg (transfer description dict).', default=None)
-    parser.add_argument('-y', '--ylim', help='Y axis limits, comma-separated', default=None)
     parser.add_argument('-s', '--start_ts', help='Do not consider transfers that started before given time. Format: 2024-01-18T01:45:59', default=None)
     parser.add_argument('-e', '--end_ts', help='Do not consider transfers that finished after given time. Format: 2024-01-18T01:45:59', default=None)
     parser.add_argument('-S', '--successfull_only', help='Do not consider failed transfers.', action='store_true')
-    parser.add_argument('-t', '--type', help='Plot type.', choices=['throughput', 'NumOfTransfers', 'thr_dist'])
+
+    subparser = parser.add_subparsers(dest='subcommand')
+    p1 = subparser.add_parser('plot_throughput', help="Plot cumulative throughput vs time, possibly with some grouping")
+    p2 = subparser.add_parser('plot_not', help="Plot cumulative number of transfers vs time, possibly with some grouping")
+    p3 = subparser.add_parser('plot_dist', help="Plot individual transfers throughput distribution")
+
+    p3.add_argument('-m', '--multiple_bins', help='What to do with multiple bins', default='layer', choices=['layer', 'fill', 'dodge', 'stack'])
+    p3.add_argument('-G', '--group_by_func', help='Aggreagate lambda, for scattered plots. Default is to group by key value', default=None)
     args = parser.parse_args()
     return args
 
@@ -116,7 +121,7 @@ if __name__ == '__main__':
 
     print(f"lasted: {res['all'][0][-1]}, start time: {shift}, end time: {shift + res['all'][0][-1]}") 
     legend = []
-    if args.type == 'thr_dist':
+    if args.subcommand == 'plot_dist':
         import seaborn as sns
         import pandas as pd
         #data = filter(lambda x: 'gateway' in x and x['gateway'], data)
@@ -132,7 +137,7 @@ if __name__ == '__main__':
         sns.displot(data, x='thr', hue=gr_by, bins=120, multiple=args.multiple_bins)
     else:
         for key, val in res.items():
-            if args.type == 'throughput':
+            if args.subcommand == 'plot_throughput':
                 yval = val[1]
             else:
                 yval = val[2]
@@ -145,7 +150,7 @@ if __name__ == '__main__':
             s, e = [int(x) for x in args.ylim.split(',')]
             plt.ylim([s,e])
 
-        if args.type == 'throughput':
+        if args.subcommand == 'plot_throughput':
             ylabel, title = 'Throughput, MiB/s', f'Throughput by {args.group_by}'
         else:
             ylabel, title = 'Number Of Transfers', f'Transfers by {args.group_by}'
