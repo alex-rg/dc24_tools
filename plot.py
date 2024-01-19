@@ -15,7 +15,7 @@ def parse_args():
     parser.add_argument('-o', '--output', help='Plot output', default='./plot.png')
     parser.add_argument('-r', '--resolution', help='Resolution, in dpi', default=300, type=int)
     parser.add_argument('-x', '--xlim', help='X axis limits, comma-separated', default=None)
-    parser.add_argument('-m', '--multiple_bins', help='What to do with multiple bins', default='layer', choices=['layer', 'fill', 'dodge', 'stack'])ok
+    parser.add_argument('-m', '--multiple_bins', help='What to do with multiple bins', default='layer', choices=['layer', 'fill', 'dodge', 'stack'])
     parser.add_argument('-g', '--group_by', help='Group transfers by key', default='vo_name')
     parser.add_argument('-G', '--group_by_func', help='Aggreagate lambda, for scattered plots. Default is to group by key value', default=None)
     parser.add_argument('-f', '--filter', help='Arbitrary filter for values. Should be string desc of a lambda which takes 1 arg (transfer description dict).', default=None)
@@ -54,7 +54,7 @@ if __name__ == '__main__':
                or
                args.end_ts
                and
-               end_time > int(datetime.strptime(end_ts, '%Y-%m-%dT%H:%M:%S').strftime("%s"))
+               end_time > int(datetime.strptime(args.end_ts, '%Y-%m-%dT%H:%M:%S').strftime("%s"))
                or
                args.successfull_only
                and
