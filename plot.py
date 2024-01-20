@@ -7,6 +7,7 @@ import time
 import argparse
 import matplotlib.ticker as mtick
 
+from copy import deepcopy
 from datetime import datetime
 from matplotlib import pyplot as plt
 
@@ -30,9 +31,12 @@ def parse_args():
     p1 = subparser.add_parser('plot_throughput', help="Plot cumulative throughput vs time, possibly with some grouping")
     p2 = subparser.add_parser('plot_not', help="Plot cumulative number of transfers vs time, possibly with some grouping")
     p3 = subparser.add_parser('plot_dist', help="Plot individual transfers throughput distribution")
+    p4 = subparser.add_parser('plot_data_transferred', help="Plot cum throughput vs time, calculated as <cum_transferred>/time")
 
     p3.add_argument('-m', '--multiple_bins', help='What to do with multiple bins', default='layer', choices=['layer', 'fill', 'dodge', 'stack'])
     p3.add_argument('-G', '--group_by_func', help='Aggreagate lambda, for scattered plots. Default is to group by key value', default=None)
+
+    p4.add_argument('-e', '--example_speed', help="Plot example speed, GiB/s.", default=None)
     args = parser.parse_args()
     return args
 
@@ -77,15 +81,15 @@ class DataManager:
             key = item[group_by]
             start_time = item['start_epoch']
             end_time = item['end_epoch']
-            end_time = int(end_time)
+            start_item = (start_time, item['throughput'], 1, 0)
+            end_item = (end_time, -item['throughput'], -1, item['filesize'])
             if key in arranged_by_key:
-                arranged_by_key[key].append( (start_time, item['throughput'], 1) )
-                arranged_by_key[key].append( (end_time, -item['throughput'], -1) )
+                arranged_by_key[key].append(start_item)
+                arranged_by_key[key].append(end_item)
             else:
-                arranged_by_key[key] = [ (start_time, item['throughput'], 1) ]
-                arranged_by_key[key] = [ (end_time, -item['throughput'], -1) ]
-            arranged_by_key['all'].append( (start_time, item['throughput'], 1) )
-            arranged_by_key['all'].append( (end_time, -item['throughput'], -1) )
+                arranged_by_key[key] = [ deepcopy(start_item),  deepcopy(end_item) ]
+            arranged_by_key['all'].append( deepcopy(start_item) )
+            arranged_by_key['all'].append( deepcopy(end_item) )
 
         if len(arranged_by_key['all']) == 0:
             print("No data found! Check filters.")
@@ -97,24 +101,37 @@ class DataManager:
 
     def calculate_cumulatives(self):
         "Calculate cumulative values for plotting"
-        res = {k: ([], [], []) for k in self.arranged_by_key}
+        res = {k: ([], [], [], []) for k in self.arranged_by_key}
+        shift = self.arranged_by_key['all'][0][0]
+        old_ts = shift
         for key, val in self.arranged_by_key.items():
             cum_num = 0
             cum_thr = 0
-            for ts, thr, tr_state in val:
+            cum_transferred = 0
+            for ts, thr, tr_state, file_size in val:
                 cum_thr = max(0, cum_thr + thr)
                 cum_num = cum_num + tr_state
-                ts = ts
+                cum_transferred += file_size / (1024*1024*1024)
+                if file_size > 0:
+                    cum_tr_val = cum_transferred #/ max(1, ts - shift)
+                else:
+                    #if file size is zero, then its the start of tranfser, and it does not affect average throughput
+                    if res[key][3]:
+                        cum_tr_val = res[key][3][-1]
+                    else:
+                        cum_tr_val = 0
                 if len(res[key][0]) > 0 and res[key][0][-1] == ts:
                     res[key][1][-1] += thr
                     res[key][2][-1] += tr_state
+                    res[key][3][-1] = cum_tr_val
                 else:
                     res[key][0].append(ts)
                     res[key][1].append(cum_thr)
                     res[key][2].append(cum_num)
+                    res[key][3].append( cum_tr_val )
+                old_ts = ts
         print(f"lasted: {res['all'][0][-1]}, start time: {res['all'][0][0]}, end time: {res['all'][0][-1]}")
         self.res_cum = res
-
 
 
 if __name__ == '__main__':
@@ -146,13 +163,25 @@ if __name__ == '__main__':
         dm.arrange(args.group_by)
         dm.calculate_cumulatives()
         legend = []
+        speed_x, speed_y = None, None
+        plt_func = plt.step
         for key, val in dm.res_cum.items():
             if args.subcommand == 'plot_throughput':
                 yval = val[1]
+            elif args.subcommand == 'plot_data_transferred':
+                yval = val[3]
+                plt_func = plt.plot
             else:
                 yval = val[2]
-            plt.step(val[0], yval)
+            plt_func(val[0], yval)
             legend.append(key)
+        if args.subcommand == 'plot_data_transferred' and args.example_speed:
+            start_x = dm.res_cum['all'][0][0]
+            end_x = dm.res_cum['all'][0][-1]
+            speed_x = [start_x, end_x]
+            speed_y = [0, float(args.example_speed)*(end_x - start_x)]
+            plt.plot(speed_x, speed_y)
+            legend.append(f'{args.example_speed} GiB/s')
         if args.xlim:
             s, e = [int(x) for x in args.xlim.split(',')]
             plt.xlim([s,e])
@@ -162,6 +191,8 @@ if __name__ == '__main__':
 
         if args.subcommand == 'plot_throughput':
             ylabel, title = 'Throughput, MiB/s', f'Throughput by {args.group_by}'
+        if args.subcommand == 'plot_data_transferred':
+            ylabel, title = 'Transferred, GiB', f'Throughput by {args.group_by}'
         else:
             ylabel, title = 'Number Of Transfers', f'Transfers by {args.group_by}'
 
