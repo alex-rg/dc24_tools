@@ -175,9 +175,10 @@ if __name__ == '__main__':
                 yval = val[2]
             plt_func(val[0], yval)
             legend.append(key)
+        start_x = dm.res_cum['all'][0][0]
+        end_x = dm.res_cum['all'][0][-1]
+        print("plot val ", start_x, end_x, dm.res_cum['all'][3][0], dm.res_cum['all'][3][-1])
         if args.subcommand == 'plot_data_transferred' and args.example_speed:
-            start_x = dm.res_cum['all'][0][0]
-            end_x = dm.res_cum['all'][0][-1]
             speed_x = [start_x, end_x]
             speed_y = [0, float(args.example_speed)*(end_x - start_x)]
             plt.plot(speed_x, speed_y)
@@ -191,7 +192,7 @@ if __name__ == '__main__':
 
         if args.subcommand == 'plot_throughput':
             ylabel, title = 'Throughput, MiB/s', f'Throughput by {args.group_by}'
-        if args.subcommand == 'plot_data_transferred':
+        elif args.subcommand == 'plot_data_transferred':
             ylabel, title = 'Transferred, GiB', f'Throughput by {args.group_by}'
         else:
             ylabel, title = 'Number Of Transfers', f'Transfers by {args.group_by}'
