@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument('-s', '--start_ts', help='Do not consider transfers that started before given time. Format: 2024-01-18T01:45:59', default=None)
     parser.add_argument('-e', '--end_ts', help='Do not consider transfers that finished after given time. Format: 2024-01-18T01:45:59', default=None)
     parser.add_argument('-S', '--successfull_only', help='Do not consider failed transfers.', action='store_true')
+    parser.add_argument('-G', '--group_by_func', help='Aggreagate lambda, for scattered plots. Default is to group by key value', default=None)
 
     subparser = parser.add_subparsers(dest='subcommand')
     p1 = subparser.add_parser('plot_throughput', help="Plot cumulative throughput vs time, possibly with some grouping")
@@ -34,7 +35,6 @@ def parse_args():
     p4 = subparser.add_parser('plot_data_transferred', help="Plot cum throughput vs time, calculated as <cum_transferred>/time")
 
     p3.add_argument('-m', '--multiple_bins', help='What to do with multiple bins', default='layer', choices=['layer', 'fill', 'dodge', 'stack'])
-    p3.add_argument('-G', '--group_by_func', help='Aggreagate lambda, for scattered plots. Default is to group by key value', default=None)
 
     p4.add_argument('-e', '--example_speed', help="Plot example speed, GiB/s.", default=None)
     args = parser.parse_args()
@@ -75,10 +75,13 @@ class DataManager:
             filtered_data.append(item)
         self.filtered_data = filtered_data
 
-    def arrange(self, group_by):
+    def arrange(self, group_by, group_by_func=None):
         arranged_by_key = {'all': []}
         for item in self.filtered_data:
-            key = item[group_by]
+            if group_by_func is None:
+                key = item[group_by]
+            else:
+                key = group_by_func(item)
             start_time = item['start_epoch']
             end_time = item['end_epoch']
             start_item = (start_time, item['throughput'], 1, 0)
@@ -145,6 +148,11 @@ if __name__ == '__main__':
         filt = None
     dm.filter_data(filt=filt, start_ts=args.start_ts, end_ts=args.end_ts, success_only=args.successfull_only)
 
+    if args.group_by_func:
+        gr_by_func = eval(args.group_by_func)
+    else:
+        gr_by_func = None
+
     if args.subcommand == 'plot_dist':
         import seaborn as sns
         import pandas as pd
@@ -160,7 +168,7 @@ if __name__ == '__main__':
         data = pd.DataFrame(data=data_proc)
         sns.displot(data, x='thr', hue=gr_by, bins=120, multiple=args.multiple_bins)
     else:
-        dm.arrange(args.group_by)
+        dm.arrange(args.group_by, gr_by_func)
         dm.calculate_cumulatives()
         legend = []
         speed_x, speed_y = None, None
