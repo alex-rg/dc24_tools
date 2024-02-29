@@ -27,12 +27,13 @@ def parse_args():
     parser.add_argument('-e', '--end_ts', help='Do not consider transfers that finished after given time. Format: 2024-01-18T01:45:59', default=None)
     parser.add_argument('-S', '--successfull_only', help='Do not consider failed transfers.', action='store_true')
     parser.add_argument('-G', '--group_by_func', help='Aggreagate lambda, for scattered plots. Default is to group by key value', default=None)
+    parser.add_argument('-t', '--title', help='Custom plot title', default=None)
 
     subparser = parser.add_subparsers(dest='subcommand')
     p1 = subparser.add_parser('plot_throughput', help="Plot cumulative throughput vs time, possibly with some grouping")
     p2 = subparser.add_parser('plot_not', help="Plot cumulative number of transfers vs time, possibly with some grouping")
     p3 = subparser.add_parser('plot_dist', help="Plot individual transfers throughput distribution")
-    p4 = subparser.add_parser('plot_data_transferred', help="Plot cum throughput vs time, calculated as <cum_transferred>/time")
+    p4 = subparser.add_parser('plot_data_transferred', help="Plot cum data transferred vs time")
 
     p3.add_argument('-m', '--multiple_bins', help='What to do with multiple bins', default='layer', choices=['layer', 'fill', 'dodge', 'stack'])
 
@@ -156,9 +157,6 @@ if __name__ == '__main__':
     if args.subcommand == 'plot_dist':
         import seaborn as sns
         import pandas as pd
-        #data = filter(lambda x: 'gateway' in x and x['gateway'], data)
-        #data = filter(lambda x: not re.match('^ceph-(gw[0-9]+|svc9[789]):',  x['gateway']), data)
-        #data_proc['group'].append('old' if re.match('^ceph-(gw[0-9]+|svc9[789]):', item['gateway']) else ('new' if item['gateway'] != 'Multiple' else 'mult'))
         gr_by = args.group_by
         gr_by_func = eval(args.group_by_func) if args.group_by_func else lambda x: x[gr_by]
         data_proc = {'thr': [], gr_by: []}
@@ -167,6 +165,8 @@ if __name__ == '__main__':
             data_proc[gr_by].append(gr_by_func(item))
         data = pd.DataFrame(data=data_proc)
         sns.displot(data, x='thr', hue=gr_by, bins=120, multiple=args.multiple_bins)
+        title = f"Indiv. transfer throughput by {gr_by}"
+        plt.xlabel("Throughput, MiB/s")
     else:
         dm.arrange(args.group_by, gr_by_func)
         dm.calculate_cumulatives()
@@ -207,14 +207,17 @@ if __name__ == '__main__':
 
         plt.xlabel("Time")
         plt.ylabel(ylabel)
-        plt.title(title)
         plt.legend(legend)
         plt.gca().xaxis.set_major_formatter(
                 mtick.FuncFormatter(lambda pos,_: time.strftime("%d-%m %H:%M",time.localtime(pos)))
             )
         plt.xticks(rotation=90)
-        if args.height:
-            plt.gcf().set_figheight(args.height)
-        if args.width:
-            plt.gcf().set_figwidth(args.width)
+
+    if args.title:
+        title = args.title
+    plt.title(title)
+    if args.height:
+        plt.gcf().set_figheight(args.height)
+    if args.width:
+        plt.gcf().set_figwidth(args.width)
     plt.savefig(args.output, dpi=args.resolution)
