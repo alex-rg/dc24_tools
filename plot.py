@@ -37,7 +37,7 @@ def parse_args():
 
     p3.add_argument('-m', '--multiple_bins', help='What to do with multiple bins', default='layer', choices=['layer', 'fill', 'dodge', 'stack'])
 
-    p4.add_argument('-e', '--example_speed', help="Plot example speed, GiB/s.", default=None)
+    p4.add_argument('-e', '--example_speed', help="Plot example speed, GiB/s.", default=None, action='append')
     args = parser.parse_args()
     return args
 
@@ -187,10 +187,11 @@ if __name__ == '__main__':
         end_x = dm.res_cum['all'][0][-1]
         print("plot val ", start_x, end_x, dm.res_cum['all'][3][0], dm.res_cum['all'][3][-1])
         if args.subcommand == 'plot_data_transferred' and args.example_speed:
-            expl_x = [start_x, end_x]
-            expl_y = [0, float(args.example_speed)*(end_x - start_x)]
-            plt.plot(expl_x, expl_y)
-            legend.append(f'{args.example_speed} GiB/s')
+            for expl_val in args.example_speed:
+                expl_x = [start_x, end_x]
+                expl_y = [0, float(expl_val)*(end_x - start_x)]
+                plt.plot(expl_x, expl_y)
+                legend.append(f'{expl_val} GiB/s')
 
         if args.xlim:
             s, e = [int(x) for x in args.xlim.split(',')]
