@@ -201,7 +201,7 @@ if __name__ == '__main__':
         if args.subcommand == 'plot_throughput':
             ylabel, title = 'Throughput, MiB/s', f'Throughput by {args.group_by}'
         elif args.subcommand == 'plot_data_transferred':
-            ylabel, title = 'Transferred, GiB', f'Throughput by {args.group_by}'
+            ylabel, title = 'Transferred, GiB', f"Data transferred by {args.group_by}"
         else:
             ylabel, title = 'Number Of Transfers', f'Transfers by {args.group_by}'
 
