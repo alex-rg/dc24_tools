@@ -187,10 +187,11 @@ if __name__ == '__main__':
         end_x = dm.res_cum['all'][0][-1]
         print("plot val ", start_x, end_x, dm.res_cum['all'][3][0], dm.res_cum['all'][3][-1])
         if args.subcommand == 'plot_data_transferred' and args.example_speed:
-            speed_x = [start_x, end_x]
-            speed_y = [0, float(args.example_speed)*(end_x - start_x)]
-            plt.plot(speed_x, speed_y)
+            expl_x = [start_x, end_x]
+            expl_y = [0, float(args.example_speed)*(end_x - start_x)]
+            plt.plot(expl_x, expl_y)
             legend.append(f'{args.example_speed} GiB/s')
+
         if args.xlim:
             s, e = [int(x) for x in args.xlim.split(',')]
             plt.xlim([s,e])
