@@ -24,11 +24,11 @@ if __name__ == '__main__':
     gw = None
     glob = ' '.join(args.file_glob)
     path_rexp = ('[^ ]*' + args.path_part + '[^ ]*') if args.path_part else '[^ ]*'
-    grep_mode_rexp = r'\(read\|write\)' if args.mode else args.mode
+    grep_mode_rexp = r'\(read\|write\)' if not args.mode else args.mode
     mode_rexp = grep_mode_rexp.replace('\\', '')
     for gw in args.gw_host:
         cur_res = {}
-        ssh_res = subprocess.run(['ssh', '-l', args.user, gw, "zgrep --binary-file=text 'File descriptor [0-9]\+ associated to file " + path_rexp + " opened in " + grep_mode_rexp + " mode' " + glob], stdout=subprocess.PIPE)
+        ssh_res = subprocess.run(['ssh', '-l', args.user, gw, "zgrep --binary-file=text 'File descriptor [0-9]\+ associated to file " + path_rexp + " opened in " + grep_mode_rexp + " mode' " + glob], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if ssh_res.returncode == 0:
             for line in ssh_res.stdout.decode('utf-8').split('\n'):
                 m = re.match('.*(?P<ts>[0-9]{6} [0-9:]{8}) File descriptor [0-9]+ associated to file (?P<filename>[^ ]+) opened in ' + mode_rexp + ' mode.*', line)
@@ -39,6 +39,8 @@ if __name__ == '__main__':
                         cur_res[filename].append(epoch)
                     else:
                         cur_res[filename] = [ epoch ]
+        else:
+            print(f"Failed to grep: {ssh_res.stderr}")
         res[gw] = cur_res
 
     print(json.dumps(res, indent=2))
